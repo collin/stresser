@@ -1,7 +1,7 @@
 $:.unshift File.join(File.dirname(__FILE__), '..', 'lib')
 
 require 'rubygems'
-require 'spec'
+require 'rspec'
 require 'progressbar'
-require 'lib/httperf'
-require 'lib/mp_perf'
+require_relative './../lib/httperf'
+require_relative './../lib/mp_perf'

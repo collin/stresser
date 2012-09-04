@@ -21,6 +21,36 @@ module Httperf
     res 
   end
 
+  ADDITIVE = ['conns', 'requests', 'replies', 'duration', 'conn time avg',
+              'replies/s avg', 'status 1xx', 'status 2xx', 'status 3xx',
+              'status 4xx', 'status 5xx', 'cpu time user', 'cpu time system',
+              'cpu time user %', 'cpu time system %', 'cpu time total %',
+              /net i\/o/, ]
+  AVERAGED = ['conns/s', 'ms/connection', 'conn length replies/conn', 'req/s',
+              'ms/req']
+  MAXIMUM  = ['concurrent connections max', 'conn time max', 'replies/s max' ]
+  MINIMUM  = ['conn time min', 'replies/s min']
+  MEDIAN   = ['conn time median', ]
+  DEVIATED = ['conn time stddev', 'replies/s stddev']
+
+
+  def merge(*pipes)
+    result = Hash.new
+    parsed = pipes.map &method(:parse_output)
+
+    pluck = lambda do |property|
+      parsed.map {|item| item[property] }
+    end
+
+    ADDITIVE.each do |property|
+      result[property] = pluck[property].
+        reject{|value| value == ""}.
+        inject(0, &:+)        
+    end
+
+    result
+  end
+
   def parse_output(pipe)
     res = Hash.new("")
 
