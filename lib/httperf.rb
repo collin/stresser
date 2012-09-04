@@ -21,31 +21,48 @@ module Httperf
     res 
   end
 
-  ADDITIVE = ['conns', 'requests', 'replies', 'duration', 'conn time avg',
-              'replies/s avg', 'status 1xx', 'status 2xx', 'status 3xx',
-              'status 4xx', 'status 5xx', 'cpu time user', 'cpu time system',
+  ADDITIVE = ['conns', 'requests', 'replies', 'status 1xx', 'status 2xx', 
+              'status 3xx', 'status 4xx', 'status 5xx', 
+              'errors total', 'errors fd-unavail', 'errors client-timo',
+              'errors socket-timo', 'errors connrefused', 'errors connreset',
+              'errors fd-unavail', 'errors addrunavail', 'errors ftab-full',
+              'errors other']
+  AVERAGED = ['conn/s', 'ms/connection', 'conn length replies/conn', 'req/s',
+              'ms/req', 'conn time avg', 'cpu time user', 'cpu time system',
               'cpu time user %', 'cpu time system %', 'cpu time total %',
-              /net i\/o/, ]
-  AVERAGED = ['conns/s', 'ms/connection', 'conn length replies/conn', 'req/s',
-              'ms/req']
-  MAXIMUM  = ['concurrent connections max', 'conn time max', 'replies/s max' ]
+              'replies/s avg', 'conn time stddev', 'replies/s stddev']
+  MAXIMUM  = ['concurrent connections max', 'conn time max', 'replies/s max',
+              'duration']
   MINIMUM  = ['conn time min', 'replies/s min']
-  MEDIAN   = ['conn time median', ]
-  DEVIATED = ['conn time stddev', 'replies/s stddev']
-
 
   def merge(*pipes)
+    merge_result_hashes pipes.map &method(:parse_output)
+  end
+
+  def merge_result_hashes(hashes)
     result = Hash.new
-    parsed = pipes.map &method(:parse_output)
 
     pluck = lambda do |property|
-      parsed.map {|item| item[property] }
+      hashes.map {|item| item[property] }.reject{|value| value == ""}
     end
 
     ADDITIVE.each do |property|
-      result[property] = pluck[property].
-        reject{|value| value == ""}.
-        inject(0, &:+)        
+      result[property] = pluck[property].inject(0, &:+)        
+    end
+
+    MAXIMUM.each do |property|
+      result[property] = pluck[property].max
+    end
+
+    MINIMUM.each do |property|
+      result[property] = pluck[property].min
+    end
+
+    AVERAGED.each do |property|
+      plucked = pluck[property]
+      sum = plucked.inject(0, &:+)        
+      result[property] = 0 and next if plucked.length == 0
+      result[property] = sum / plucked.count
     end
 
     result
@@ -137,7 +154,7 @@ module Httperf
         res['session rate stddev'] = nrs[3]
         res['session rate quota']  = "#{nrs[4]}/#{nrs[5]}"
       when "Session" then
-        res['session avg conns/sess'] = nrs[0]
+        res['session avg conn/sess'] = nrs[0]
       when "Session lifetime [s]" then
         res['session lifetime [s]'] = nrs[0]
       when "Session failtime [s]" then
